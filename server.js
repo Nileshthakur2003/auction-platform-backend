@@ -33,7 +33,7 @@ const authenticate = (req, res, next) => {
 };
 
 // Signup Route called when signup form is submitted on the frontend
-app.post('/Signup', async (req, res) => {
+app.post('/s ignup', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -46,9 +46,9 @@ app.post('/Signup', async (req, res) => {
       return res.status(400).json({ message: 'Username already exists' });
     }
 
-    //const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ username, password });
-    await newUser.save();//a new user is being created in db
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ username, hashedPassword });
+    await newUser.save(); //a new user is being created in db
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
@@ -60,7 +60,8 @@ app.post('/Signup', async (req, res) => {
 // Signin Route
 app.post('/signin', async (req, res) => {
   const { username, password } = req.body;
-  const user = await User.findOne({ username, password });
+  const hashedPassword = bcrypt.hash(password, 10);
+  const user = await User.findOne({ username, hashedPassword });
   if (user) {
     const token = jwt.sign({ userId: user._id, username }, SECRET_KEY, { expiresIn: '1h' });//this token helps the user to remain signed in for an 1hour
       res.json({ message: 'Signin successful', token });
@@ -118,6 +119,30 @@ app.get('/auctions', async (req, res) => {
     res.json(auctions);
   } catch (error) {
     console.error('Fetching Auctions Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// edit an auction
+// Edit Auction Item (Protected)
+app.put('/auction/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { itemName, description, currentBid, highestBidder, closingTime } = req.body;
+
+    const auctionItem = await AuctionItem.findById(id);
+    if (!auctionItem) return res.status(404).json({ message: 'Auction item not found' });
+
+    auctionItem.itemName = itemName || auctionItem.itemName;
+    auctionItem.description = description || auctionItem.description;
+    auctionItem.currentBid = currentBid || auctionItem.currentBid;
+    auctionItem.highestBidder = highestBidder || auctionItem.highestBidder;
+    auctionItem.closingTime = closingTime || auctionItem.closingTime;
+
+    await auctionItem.save();
+    res.json({ message: 'Auction item updated', item: auctionItem });
+  } catch (error) {
+    console.error('Auction Edit Error:', error);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
